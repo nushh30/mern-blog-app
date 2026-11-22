@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -42,8 +42,8 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/posts', postRoutes);
 
-// Connect to Database and start server if not testing
-if (process.env.NODE_ENV !== 'test') {
+// Connect to Database and start server only when executed directly (not when required by tests)
+if (require.main === module && process.env.NODE_ENV !== 'test') {
   mongoose
     .connect(MONGODB_URI)
     .then(() => {
