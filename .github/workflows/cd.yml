@@ -1,4 +1,4 @@
-name: Continuous Delivery & Deployment (CD)
+﻿name: Continuous Delivery & Deployment (CD)
 
 on:
   push:
@@ -6,11 +6,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1. Build and Push Docker Images to Docker Hub
   build-and-push:
     name: Build & Push Images to Docker Hub
     runs-on: ubuntu-latest
-    needs: [] # In a full pipeline, you can set `needs: [backend-ci, frontend-ci]`
+    if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -24,7 +23,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build & Push Backend Docker Image
       - name: Build & Push Backend Image
         uses: docker/build-push-action@v5
         with:
@@ -35,7 +33,6 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/mern-blog-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/mern-blog-backend:${{ github.sha }}
 
-      # Build & Push Frontend Docker Image
       - name: Build & Push Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -48,11 +45,11 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/mern-blog-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/mern-blog-frontend:${{ github.sha }}
 
-  # 2. Deploy Services to Google Cloud Run
   deploy-to-cloud-run:
     name: Deploy to Google Cloud Run
     runs-on: ubuntu-latest
     needs: [build-and-push]
+    if: ${{ secrets.GCP_SA_KEY != '' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -65,7 +62,6 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # Deploy Backend Service to Cloud Run
       - name: Deploy Backend to Cloud Run
         run: |
           gcloud run deploy mern-blog-backend \
@@ -76,7 +72,6 @@ jobs:
             --set-env-vars MONGODB_URI="${{ secrets.MONGODB_ATLAS_URI }}",PORT="5000",CLIENT_ORIGIN="*" \
             --port 5000
 
-      # Deploy Frontend Service to Cloud Run
       - name: Deploy Frontend to Cloud Run
         run: |
           gcloud run deploy mern-blog-frontend \
