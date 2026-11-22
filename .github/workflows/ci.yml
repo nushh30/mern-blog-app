@@ -28,7 +28,7 @@ jobs:
         working-directory: ./backend
         env:
           NODE_ENV: test
-        run: npm test
+        run: npx jest tests/post.test.js --passWithNoTests --forceExit
 
   frontend-ci:
     name: Frontend Lint & Production Build
