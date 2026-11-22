@@ -1,0 +1,64 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # Backend CI Pipeline
+  backend-ci:
+    name: Backend Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Lint Backend Code
+        working-directory: ./backend
+        run: npm run lint --if-present
+
+      - name: Run Backend Unit & Integration Tests
+        working-directory: ./backend
+        run: npm test
+
+  # Frontend CI Pipeline
+  frontend-ci:
+    name: Frontend Lint & Production Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint Frontend Code
+        working-directory: ./frontend
+        run: npm run lint --if-present
+
+      - name: Verify Production Bundle Build
+        working-directory: ./frontend
+        run: npm run build
