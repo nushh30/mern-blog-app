@@ -1,14 +1,7 @@
+﻿process.env.NODE_ENV = 'test';
 const request = require('supertest');
 const mongoose = require('mongoose');
 const app = require('../server');
-const Post = require('../models/Post');
-
-beforeAll(async () => {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mern_blog_test';
-  await mongoose.connect(mongoUri).catch(() => {
-    console.log('Running mock/disconnected test mode');
-  });
-});
 
 afterAll(async () => {
   if (mongoose.connection.readyState !== 0) {
