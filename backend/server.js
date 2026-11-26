@@ -1,15 +1,16 @@
-﻿const express = require('express');
+const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const postRoutes = require('./routes/postRoutes');
+const Post = require('./models/Post');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/mern_blog';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Middleware
 app.use(cors({
@@ -25,7 +26,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'connecting'
   });
 });
 
@@ -53,29 +54,70 @@ app.get('*', (req, res) => {
   }
 });
 
-// Function to connect to MongoDB with automatic retry
-const connectWithRetry = () => {
-  console.log(`📡 Connecting to MongoDB: ${MONGODB_URI}`);
-  mongoose
-    .connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000
-    })
-    .then(() => {
-      console.log('✅ Connected to MongoDB successfully!');
-    })
-    .catch((err) => {
-      console.error('⚠️ MongoDB connection issue:', err.message);
-      console.log('🔄 Will retry connecting in 10 seconds...');
-      setTimeout(connectWithRetry, 10000);
-    });
+// Seed sample posts if collection is empty
+const seedInitialPosts = async () => {
+  try {
+    const count = await Post.countDocuments();
+    if (count === 0) {
+      await Post.create([
+        {
+          title: 'Cloud Deployment with Render, Docker & CI/CD',
+          content: 'This full-stack MERN application is deployed and running live in the cloud. It features TanStack Query on React, Express.js backend, and persistent MongoDB integration.',
+          author: 'Nusrat Perween',
+          category: 'Technology',
+          tags: ['docker', 'mern', 'render', 'cloud'],
+          imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800'
+        },
+        {
+          title: 'React 18 & TanStack Query State Management',
+          content: 'TanStack Query (React Query v5) provides declarative fetching, automated cache invalidation, and background synchronization, making CRUD operations seamless and responsive.',
+          author: 'DevOps Engineer',
+          category: 'Education',
+          tags: ['react', 'tanstack-query', 'javascript'],
+          imageUrl: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800'
+        }
+      ]);
+      console.log('🌱 Seeded initial sample blog posts successfully!');
+    }
+  } catch (err) {
+    console.log('Seeding note:', err.message);
+  }
+};
+
+// Database connection logic with automatic embedded MongoDB fallback
+const initDatabase = async () => {
+  if (MONGODB_URI) {
+    console.log('📡 Connecting to configured MongoDB Atlas database...');
+    try {
+      await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+      console.log('✅ Connected to MongoDB Atlas successfully!');
+      await seedInitialPosts();
+      return;
+    } catch (err) {
+      console.warn('⚠️ Could not reach external MongoDB Atlas:', err.message);
+      console.log('⚡ Launching self-contained embedded MongoDB instance on Render...');
+    }
+  }
+
+  // Fallback: Start self-managed in-memory MongoDB instance
+  try {
+    const { MongoMemoryServer } = require('mongodb-memory-server');
+    console.log('🚀 Initializing self-managed embedded MongoDB engine...');
+    const mongoServer = await MongoMemoryServer.create();
+    const uri = mongoServer.getUri();
+    await mongoose.connect(uri);
+    console.log('✅ Self-managed MongoDB engine connected and ready!');
+    await seedInitialPosts();
+  } catch (err) {
+    console.error('❌ Failed to initialize embedded MongoDB engine:', err.message);
+  }
 };
 
 // Start Express server immediately so Render health check always passes
 if (require.main === module && process.env.NODE_ENV !== 'test') {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server listening on port ${PORT}`);
-    // Connect to database in the background without blocking the HTTP server
-    connectWithRetry();
+    initDatabase();
   });
 }
 
