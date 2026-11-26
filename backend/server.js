@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const postRoutes = require('./routes/postRoutes');
 
 dotenv.config();
@@ -19,7 +20,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint for Docker & Cloud Run
+// Health check endpoint for Docker, Render & Cloud Run
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
@@ -28,19 +29,29 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Root welcome route
-app.get('/', (req, res) => {
-  res.status(200).json({
-    message: 'Welcome to MERN Stack Blog Application API',
-    endpoints: {
-      health: '/health',
-      posts: '/api/posts'
-    }
-  });
-});
-
 // API Routes
 app.use('/api/posts', postRoutes);
+
+// Serve static frontend files if public folder exists (for unified Docker deployment)
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
+
+// Fallback to React index.html for SPA client-side routing, or API info if not static build
+app.get('*', (req, res) => {
+  const indexPath = path.join(publicDir, 'index.html');
+  const fs = require('fs');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).json({
+      message: 'Welcome to MERN Stack Blog Application API',
+      endpoints: {
+        health: '/health',
+        posts: '/api/posts'
+      }
+    });
+  }
+});
 
 // Connect to Database and start server only when executed directly (not when required by tests)
 if (require.main === module && process.env.NODE_ENV !== 'test') {
