@@ -53,19 +53,30 @@ app.get('*', (req, res) => {
   }
 });
 
-// Connect to Database and start server only when executed directly (not when required by tests)
-if (require.main === module && process.env.NODE_ENV !== 'test') {
+// Function to connect to MongoDB with automatic retry
+const connectWithRetry = () => {
+  console.log(`📡 Connecting to MongoDB: ${MONGODB_URI}`);
   mongoose
-    .connect(MONGODB_URI)
+    .connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000
+    })
     .then(() => {
-      console.log(` Connected to MongoDB successfully: ${MONGODB_URI}`);
-      app.listen(PORT, () => {
-        console.log(` Backend server listening on port ${PORT}`);
-      });
+      console.log('✅ Connected to MongoDB successfully!');
     })
     .catch((err) => {
-      console.error(' MongoDB connection failed:', err.message);
+      console.error('⚠️ MongoDB connection issue:', err.message);
+      console.log('🔄 Will retry connecting in 10 seconds...');
+      setTimeout(connectWithRetry, 10000);
     });
+};
+
+// Start Express server immediately so Render health check always passes
+if (require.main === module && process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+    // Connect to database in the background without blocking the HTTP server
+    connectWithRetry();
+  });
 }
 
 module.exports = app;
